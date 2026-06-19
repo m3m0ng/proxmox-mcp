@@ -1,0 +1,31 @@
+# Secrets — never commit real credentials
+.env
+.env.*
+!.env.example
+
+# Build-orchestration scratch (eddie-lite run notes + state; contains env-specific details)
+eddie/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Test / tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
