@@ -17,13 +17,15 @@ Two properties matter:
 
 from __future__ import annotations
 
+import os
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 
 from .client import get_client
-from .config import Config, load_config
+from .config import Config, _parse_bool, load_config
 from .safety import assert_no_destructive_tools, guard
+from .tools import exec as exec_tools
 from .tools import lifecycle, provision, read
 
 __all__ = ["build_server", "main"]
@@ -41,16 +43,34 @@ def build_server(config: Optional[Config] = None) -> FastMCP:
 
     cache: dict[str, Any] = {}
 
+    def get_config() -> Config:
+        """Return the resolved Config, loading from env lazily if not supplied."""
+        if "config" not in cache:
+            cache["config"] = config if config is not None else load_config()
+        return cache["config"]
+
     def get_api() -> Any:
         """Return the cached, guarded proxmoxer api, building it on first use."""
         if "api" not in cache:
-            cfg = config if config is not None else load_config()
-            cache["api"] = guard(get_client(cfg))
+            cache["api"] = guard(get_client(get_config()))
         return cache["api"]
 
     read.register(mcp, get_api)
     lifecycle.register(mcp, get_api)
     provision.register(mcp, get_api)
+
+    # Opt-in in-guest exec tools (Tier D'). The registration decision needs only
+    # the boolean flag: take it from an explicitly supplied Config, otherwise
+    # peek at the PROXMOX_ENABLE_EXEC env var directly. This keeps the build
+    # network-free and avoids a full load_config() (the SSH params are resolved
+    # lazily via get_config only when an exec tool actually runs). Disabled by
+    # default -> the server stays at its 27-tool surface.
+    if config is not None:
+        exec_enabled = config.enable_exec
+    else:
+        exec_enabled = _parse_bool(os.environ.get("PROXMOX_ENABLE_EXEC", ""))
+    if exec_enabled:
+        exec_tools.register(mcp, get_config)
 
     # Fail fast if a destructive tool ever sneaks into the registry.
     assert_no_destructive_tools(mcp)

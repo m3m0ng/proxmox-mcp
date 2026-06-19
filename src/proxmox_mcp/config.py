@@ -18,6 +18,9 @@ _TRUTHY = {"true", "1", "yes"}
 _DEFAULT_PORT = 8006
 _DEFAULT_VERIFY_SSL = "false"
 
+_DEFAULT_SSH_PORT = 22
+_DEFAULT_SSH_USER = "root"
+
 _DOTENV_FILENAME = ".env"
 
 
@@ -80,6 +83,14 @@ class Config:
     verify_ssl: bool = False
     port: int = _DEFAULT_PORT
 
+    # Optional in-guest exec settings (opt-in; never required).
+    enable_exec: bool = False
+    ssh_host: str | None = None
+    ssh_port: int = _DEFAULT_SSH_PORT
+    ssh_user: str = _DEFAULT_SSH_USER
+    ssh_key_file: str | None = None
+    ssh_password: str | None = None
+
     def to_proxmoxer_kwargs(self) -> dict:
         """Return kwargs for ``proxmoxer.ProxmoxAPI(...)``.
 
@@ -93,6 +104,26 @@ class Config:
             "verify_ssl": self.verify_ssl,
             "port": self.port,
         }
+
+    def ssh_target(self) -> dict:
+        """Return paramiko-style ``SSHClient.connect(...)`` kwargs.
+
+        Always includes ``hostname``/``port``/``username``. Adds
+        ``key_filename`` if a key file is configured, otherwise ``password`` if
+        one is set (key is preferred over password). If neither is set, only
+        the base kwargs are returned so paramiko can fall back to an agent or
+        default keys.
+        """
+        target: dict = {
+            "hostname": self.ssh_host,
+            "port": self.ssh_port,
+            "username": self.ssh_user,
+        }
+        if self.ssh_key_file:
+            target["key_filename"] = self.ssh_key_file
+        elif self.ssh_password:
+            target["password"] = self.ssh_password
+        return target
 
 
 def load_config(env: Mapping[str, str] | None = None) -> Config:
@@ -136,6 +167,20 @@ def load_config(env: Mapping[str, str] | None = None) -> Config:
 
     verify_ssl = _parse_bool(env.get("PROXMOX_VERIFY_SSL", _DEFAULT_VERIFY_SSL))
 
+    # Optional in-guest exec settings (opt-in; none are required).
+    enable_exec = _parse_bool(env.get("PROXMOX_ENABLE_EXEC", ""))
+
+    # ssh_host defaults to the (port-stripped) Proxmox host when unset/empty.
+    ssh_host = (env.get("PROXMOX_SSH_HOST") or "").strip() or host
+
+    ssh_port_raw = (env.get("PROXMOX_SSH_PORT") or "").strip()
+    ssh_port = int(ssh_port_raw) if ssh_port_raw else _DEFAULT_SSH_PORT
+
+    ssh_user = (env.get("PROXMOX_SSH_USER") or "").strip() or _DEFAULT_SSH_USER
+
+    ssh_key_file = (env.get("PROXMOX_SSH_KEY_FILE") or "").strip() or None
+    ssh_password = env.get("PROXMOX_SSH_PASSWORD") or None
+
     return Config(
         host=host,
         user=env["PROXMOX_USER"].strip(),
@@ -143,4 +188,10 @@ def load_config(env: Mapping[str, str] | None = None) -> Config:
         token_value=env["PROXMOX_TOKEN_VALUE"],
         verify_ssl=verify_ssl,
         port=port,
+        enable_exec=enable_exec,
+        ssh_host=ssh_host,
+        ssh_port=ssh_port,
+        ssh_user=ssh_user,
+        ssh_key_file=ssh_key_file,
+        ssh_password=ssh_password,
     )

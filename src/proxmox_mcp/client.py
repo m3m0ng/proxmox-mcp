@@ -21,6 +21,7 @@ __all__ = [
     "get_client",
     "wait_for_task",
     "task_succeeded",
+    "task_warnings",
     "node_from_upid",
 ]
 
@@ -118,5 +119,25 @@ def wait_for_task(
 
 
 def task_succeeded(status_dict: dict) -> bool:
-    """Return True iff the task's ``exitstatus`` is exactly ``"OK"``."""
-    return status_dict.get("exitstatus") == "OK"
+    """Return True if the task completed its work successfully.
+
+    Proxmox reports ``exitstatus == "OK"`` for a clean run and
+    ``"WARNINGS: N"`` for a run that finished but emitted warnings (e.g. the
+    benign "Systemd ... you may need to enable nesting" note when creating a
+    Debian LXC). Both mean the task did its job, so both count as success.
+    Any other (or missing) ``exitstatus`` is a failure.
+    """
+    exitstatus = status_dict.get("exitstatus")
+    if not exitstatus:
+        return False
+    return exitstatus == "OK" or exitstatus.startswith("WARNINGS")
+
+
+def task_warnings(status_dict: dict) -> bool:
+    """Return True if the task succeeded but reported warnings (``WARNINGS: N``).
+
+    Lets callers surface that a task completed with non-fatal warnings so they
+    can log or display them.
+    """
+    exitstatus = status_dict.get("exitstatus") or ""
+    return exitstatus.startswith("WARNINGS")

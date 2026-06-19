@@ -83,6 +83,7 @@ def test_build_server_does_not_require_env_or_network(monkeypatch):
         "PROXMOX_TOKEN_VALUE",
         "PROXMOX_PORT",
         "PROXMOX_VERIFY_SSL",
+        "PROXMOX_ENABLE_EXEC",
     ):
         monkeypatch.delenv(var, raising=False)
 

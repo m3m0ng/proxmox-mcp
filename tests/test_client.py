@@ -12,6 +12,7 @@ from proxmox_mcp.client import (
     get_client,
     node_from_upid,
     task_succeeded,
+    task_warnings,
     wait_for_task,
 )
 from proxmox_mcp.config import Config
@@ -130,21 +131,45 @@ def test_node_from_upid_rejects_garbage(bad):
 # --------------------------------------------------------------------------- #
 # task_succeeded
 # --------------------------------------------------------------------------- #
-def test_task_succeeded_true_for_ok():
-    assert task_succeeded({"status": "stopped", "exitstatus": "OK"}) is True
+@pytest.mark.parametrize(
+    "status",
+    [
+        {"status": "stopped", "exitstatus": "OK"},
+        # Proxmox reports "WARNINGS: N" for a task that completed its work but
+        # emitted warnings (e.g. the benign systemd-nesting note on Debian LXC
+        # creation). That is success-with-warnings, not failure.
+        {"status": "stopped", "exitstatus": "WARNINGS: 1"},
+        {"status": "stopped", "exitstatus": "WARNINGS: 3"},
+    ],
+)
+def test_task_succeeded_true_for_ok_and_warnings(status):
+    assert task_succeeded(status) is True
 
 
 @pytest.mark.parametrize(
     "status",
     [
-        {"status": "stopped", "exitstatus": "WARNINGS: 1"},
         {"status": "stopped", "exitstatus": "some error"},
+        {"status": "stopped", "exitstatus": ""},
         {"status": "stopped"},
         {},
     ],
 )
 def test_task_succeeded_false_otherwise(status):
     assert task_succeeded(status) is False
+
+
+@pytest.mark.parametrize(
+    "status,expected",
+    [
+        ({"exitstatus": "OK"}, False),
+        ({"exitstatus": "WARNINGS: 2"}, True),
+        ({"exitstatus": "some error"}, False),
+        ({}, False),
+    ],
+)
+def test_task_warnings(status, expected):
+    assert task_warnings(status) is expected
 
 
 # --------------------------------------------------------------------------- #
