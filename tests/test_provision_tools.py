@@ -268,6 +268,82 @@ def test_clone_container_full_false_maps_to_zero():
     assert rec["kwargs"]["full"] == 0
 
 
+@pytest.mark.parametrize(
+    "name,call",
+    [
+        (
+            "create_container",
+            lambda t: t.fn(
+                node="pve1",
+                vmid=200,
+                ostemplate="local:vztmpl/x",
+                storage="local-lvm",
+                wait=True,
+                wait_timeout=12,
+            ),
+        ),
+        (
+            "create_vm",
+            lambda t: t.fn(node="pve1", vmid=300, wait=True, wait_timeout=12),
+        ),
+        (
+            "clone_vm",
+            lambda t: t.fn(
+                node="pve1", source_vmid=300, newid=350, wait=True, wait_timeout=12
+            ),
+        ),
+        (
+            "clone_container",
+            lambda t: t.fn(
+                node="pve1", source_vmid=200, newid=250, wait=True, wait_timeout=12
+            ),
+        ),
+    ],
+)
+def test_long_running_tools_wait_when_requested(monkeypatch, name, call):
+    fake, rec = _new_fake()
+    tools = _tools(fake)
+    waited = {}
+
+    def fake_wait_for_task(api, node, upid, timeout):
+        waited.update({"api": api, "node": node, "upid": upid, "timeout": timeout})
+        return {"status": "stopped", "exitstatus": "OK"}
+
+    monkeypatch.setattr(provision, "wait_for_task", fake_wait_for_task)
+
+    result = call(tools[name])
+
+    assert waited == {
+        "api": fake,
+        "node": "pve1",
+        "upid": rec["returned"],
+        "timeout": 12,
+    }
+    assert result == {
+        "status": "stopped",
+        "exitstatus": "OK",
+        "upid": rec["returned"],
+        "node": "pve1",
+        "success": True,
+        "warnings": False,
+    }
+    assert "wait" not in rec["kwargs"]
+    assert "wait_timeout" not in rec["kwargs"]
+
+
+def test_wait_timeout_error_includes_upid(monkeypatch):
+    fake, rec = _new_fake()
+    tools = _tools(fake)
+
+    def fake_wait_for_task(api, node, upid, timeout):
+        raise TimeoutError(f"Task {upid} timed out")
+
+    monkeypatch.setattr(provision, "wait_for_task", fake_wait_for_task)
+
+    with pytest.raises(TimeoutError, match="UPID:pve1"):
+        tools["create_vm"].fn(node="pve1", vmid=300, wait=True, wait_timeout=1)
+
+
 # --------------------------------------------------------------------------- #
 # set_vm_config / set_container_config
 # --------------------------------------------------------------------------- #

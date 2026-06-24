@@ -254,7 +254,7 @@ Once registered, you talk to your agent in plain language; it picks the tools.
 | "How much RAM is free on node pve?" | `node_status` |
 | "Reboot the docker VM (id 102)." | `reboot_vm` |
 | "Create a Debian 12 container, 2 cores, 2 GB, on vmbr0." | `list_templates`, `allocate_vmid`, `create_container`, `start_container` |
-| "Clone template 9000 into a new VM and start it." | `clone_vm`, `get_task_status`, `start_vm` |
+| "Clone template 9000 into a new VM and start it." | `clone_vm(wait=true)`, `start_vm` |
 | "Install nginx in container 250." *(exec enabled)* | `exec_in_container` |
 | "Delete that test VM." | ❌ refused — deletion is human-only |
 
@@ -285,6 +285,7 @@ just needs the env vars set so the server can connect.
 
 - ✅ Tier A/B/C (read, lifecycle, provision) — no-delete guaranteed
 - ✅ Task status visibility (`get_task_status`, `list_tasks`)
+- ✅ Optional synchronous waits on create/clone provisioning tools
 - ✅ Tier D′ in-guest exec (opt-in)
 - ⏳ cloud-init provisioning helpers for VMs
 - ⏳ file push/pull into guests for app deployment
