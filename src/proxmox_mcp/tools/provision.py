@@ -13,6 +13,7 @@ proxmoxer shapes::
     create VM:  api.nodes(node).qemu.create(**kwargs)         -> UPID string
     clone VM:   api.nodes(node).qemu(src).clone.post(**kwargs)-> UPID string
     clone LXC:  api.nodes(node).lxc(src).clone.post(**kwargs) -> UPID string
+    wait=True:  poll the returned UPID and return final task status instead
     set VM:     api.nodes(node).qemu(vmid).config.set(**cfg)  -> PUT
     set LXC:    api.nodes(node).lxc(vmid).config.set(**cfg)   -> PUT
     next id:    api.cluster.nextid.get()                      -> id string
@@ -30,12 +31,26 @@ from typing import Any, Callable
 
 from mcp.server.fastmcp import FastMCP
 
+from ..client import task_succeeded, task_warnings, wait_for_task
+
 __all__ = ["register"]
 
 
 def _drop_none(d: dict) -> dict:
     """Return *d* without any keys whose value is ``None``."""
     return {k: v for k, v in d.items() if v is not None}
+
+
+def _waited_task_result(api: Any, node: str, upid: str, timeout: float) -> dict:
+    """Wait for a task UPID and add the same classification fields as get_task_status."""
+    status = wait_for_task(api, node, upid, timeout=timeout)
+    return {
+        **status,
+        "upid": upid,
+        "node": node,
+        "success": task_succeeded(status),
+        "warnings": task_warnings(status),
+    }
 
 
 def register(mcp: FastMCP, get_api: Callable[[], Any]) -> None:
@@ -56,9 +71,11 @@ def register(mcp: FastMCP, get_api: Callable[[], Any]) -> None:
         memory: int = 512,
         rootfs: str | None = None,
         net0: str = "name=eth0,bridge=vmbr0,ip=dhcp",
+        wait: bool = False,
+        wait_timeout: float = 300,
         **extra: Any,
-    ) -> str:
-        """Create an LXC container from a template; returns the task UPID."""
+    ) -> str | dict:
+        """Create an LXC container; returns a UPID, or final task status when wait=True."""
         api = get_api()
         kwargs = _drop_none(
             {
@@ -73,7 +90,10 @@ def register(mcp: FastMCP, get_api: Callable[[], Any]) -> None:
                 **extra,
             }
         )
-        return api.nodes(node).lxc.create(**kwargs)
+        upid = api.nodes(node).lxc.create(**kwargs)
+        if wait:
+            return _waited_task_result(api, node, upid, wait_timeout)
+        return upid
 
     @mcp.tool()
     def create_vm(
@@ -85,9 +105,11 @@ def register(mcp: FastMCP, get_api: Callable[[], Any]) -> None:
         net0: str = "virtio,bridge=vmbr0",
         scsi0: str | None = None,
         ostype: str = "l26",
+        wait: bool = False,
+        wait_timeout: float = 300,
         **extra: Any,
-    ) -> str:
-        """Create a QEMU virtual machine; returns the task UPID."""
+    ) -> str | dict:
+        """Create a QEMU VM; returns a UPID, or final task status when wait=True."""
         api = get_api()
         kwargs = _drop_none(
             {
@@ -101,7 +123,10 @@ def register(mcp: FastMCP, get_api: Callable[[], Any]) -> None:
                 **extra,
             }
         )
-        return api.nodes(node).qemu.create(**kwargs)
+        upid = api.nodes(node).qemu.create(**kwargs)
+        if wait:
+            return _waited_task_result(api, node, upid, wait_timeout)
+        return upid
 
     @mcp.tool()
     def clone_vm(
@@ -112,9 +137,11 @@ def register(mcp: FastMCP, get_api: Callable[[], Any]) -> None:
         full: bool = True,
         storage: str | None = None,
         target: str | None = None,
+        wait: bool = False,
+        wait_timeout: float = 300,
         **extra: Any,
-    ) -> str:
-        """Clone a QEMU VM (full clone needs storage); returns the task UPID."""
+    ) -> str | dict:
+        """Clone a QEMU VM; returns a UPID, or final task status when wait=True."""
         api = get_api()
         kwargs = _drop_none(
             {
@@ -126,7 +153,10 @@ def register(mcp: FastMCP, get_api: Callable[[], Any]) -> None:
                 **extra,
             }
         )
-        return api.nodes(node).qemu(source_vmid).clone.post(**kwargs)
+        upid = api.nodes(node).qemu(source_vmid).clone.post(**kwargs)
+        if wait:
+            return _waited_task_result(api, node, upid, wait_timeout)
+        return upid
 
     @mcp.tool()
     def clone_container(
@@ -137,9 +167,11 @@ def register(mcp: FastMCP, get_api: Callable[[], Any]) -> None:
         full: bool = True,
         storage: str | None = None,
         target: str | None = None,
+        wait: bool = False,
+        wait_timeout: float = 300,
         **extra: Any,
-    ) -> str:
-        """Clone an LXC container (full clone needs storage); returns the task UPID."""
+    ) -> str | dict:
+        """Clone an LXC container; returns a UPID, or final task status when wait=True."""
         api = get_api()
         kwargs = _drop_none(
             {
@@ -151,7 +183,10 @@ def register(mcp: FastMCP, get_api: Callable[[], Any]) -> None:
                 **extra,
             }
         )
-        return api.nodes(node).lxc(source_vmid).clone.post(**kwargs)
+        upid = api.nodes(node).lxc(source_vmid).clone.post(**kwargs)
+        if wait:
+            return _waited_task_result(api, node, upid, wait_timeout)
+        return upid
 
     @mcp.tool()
     def set_vm_config(node: str, vmid: int, **config: Any) -> Any:
