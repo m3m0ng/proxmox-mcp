@@ -16,6 +16,8 @@ from typing import Any, Callable
 
 from mcp.server.fastmcp import FastMCP
 
+from ..client import node_from_upid, task_succeeded, task_warnings
+
 __all__ = ["register"]
 
 
@@ -97,3 +99,23 @@ def register(mcp: FastMCP, get_api: Callable[[], Any]) -> None:
         """Get the next free cluster-wide VM/container id."""
         api = get_api()
         return api.cluster.nextid.get()
+
+    @mcp.tool()
+    def get_task_status(upid: str) -> dict:
+        """Get a Proxmox task status by UPID and classify its final result."""
+        node = node_from_upid(upid)
+        api = get_api()
+        status = api.nodes(node).tasks(upid).status.get()
+        return {
+            **status,
+            "upid": upid,
+            "node": node,
+            "success": task_succeeded(status),
+            "warnings": task_warnings(status),
+        }
+
+    @mcp.tool()
+    def list_tasks(node: str, limit: int = 50) -> list[dict]:
+        """List recent Proxmox tasks for a node."""
+        api = get_api()
+        return api.nodes(node).tasks.get(limit=limit)

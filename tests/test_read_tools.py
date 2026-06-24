@@ -58,7 +58,7 @@ def _registered_tools(fake_api):
     return {t.name: t for t in mcp._tool_manager.list_tools()}
 
 
-# The 12 Tier A tools, with the expected access path (as built by the fake)
+# The Tier A tools, with the expected access path (as built by the fake)
 # and the kwargs forwarded to ``.get()``.
 _EXPECTED = {
     "list_nodes": (
@@ -121,14 +121,38 @@ _EXPECTED = {
         ["cluster", "nextid"],
         {},
     ),
+    "get_task_status": (
+        {"upid": "UPID:pve1:0001:0002:0003:qmstart:100:agent@pve:"},
+        ["nodes", ("call", ("pve1",)), "tasks", ("call", ("UPID:pve1:0001:0002:0003:qmstart:100:agent@pve:",)), "status"],
+        {},
+    ),
+    "list_tasks": (
+        {"node": "pve1", "limit": 10},
+        ["nodes", ("call", ("pve1",)), "tasks"],
+        {"limit": 10},
+    ),
 }
 
 
-def test_registers_exactly_the_twelve_tools():
+def _expected_result(name, expected_path, expected_get_kwargs):
+    result = {"__endpoint__": tuple(expected_path), "kwargs": expected_get_kwargs}
+    if name == "get_task_status":
+        result.update(
+            {
+                "upid": "UPID:pve1:0001:0002:0003:qmstart:100:agent@pve:",
+                "node": "pve1",
+                "success": False,
+                "warnings": False,
+            }
+        )
+    return result
+
+
+def test_registers_exactly_the_read_tools():
     fake, _ = _new_fake()
     tools = _registered_tools(fake)
     assert set(tools) == set(_EXPECTED)
-    assert len(tools) == 12
+    assert len(tools) == 14
 
 
 def test_every_tool_has_a_docstring_description():
@@ -148,8 +172,7 @@ def test_tool_hits_expected_endpoint_and_forwards_params(name):
 
     assert recorder["path"] == expected_path
     assert recorder["get_kwargs"] == expected_get_kwargs
-    # The tool returns exactly what the api returned.
-    assert result == {"__endpoint__": tuple(expected_path), "kwargs": expected_get_kwargs}
+    assert result == _expected_result(name, expected_path, expected_get_kwargs)
 
 
 def test_cluster_resources_defaults_to_vm():
@@ -160,6 +183,59 @@ def test_cluster_resources_defaults_to_vm():
 
     assert recorder["path"] == ["cluster", "resources"]
     assert recorder["get_kwargs"] == {"type": "vm"}
+
+
+def test_get_task_status_classifies_finished_results():
+    class _Status:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def get(self):
+            return self.payload
+
+    class _Task:
+        def __init__(self, payload):
+            self.status = _Status(payload)
+
+    class _Tasks:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def __call__(self, upid):
+            return _Task(self.payload)
+
+    class _Node:
+        def __init__(self, payload):
+            self.tasks = _Tasks(payload)
+
+    class _Api:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def nodes(self, node):
+            return _Node(self.payload)
+
+    fake = _Api({"status": "stopped", "exitstatus": "WARNINGS: 1"})
+    tools = _registered_tools(fake)
+
+    result = tools["get_task_status"].fn(
+        upid="UPID:pve1:0001:0002:0003:qmstart:100:agent@pve:"
+    )
+
+    assert result["success"] is True
+    assert result["warnings"] is True
+
+
+def test_get_task_status_rejects_bad_upid_before_get_api():
+    def get_api():
+        raise AssertionError("get_api must not be called for malformed UPIDs")
+
+    mcp = FastMCP("test")
+    read.register(mcp, get_api)
+    tools = {t.name: t for t in mcp._tool_manager.list_tools()}
+
+    with pytest.raises(ValueError):
+        tools["get_task_status"].fn(upid="not-a-upid")
 
 
 def test_get_api_called_each_invocation():

@@ -161,11 +161,11 @@ def test_real_tool_set_passes_registry_guard():
     assert_no_destructive_tools(mcp)
 
 
-def test_real_tool_count_is_about_27():
+def test_real_tool_count_is_about_29():
     mcp = _mcp_with_real_tools()
     names = [t.name for t in mcp._tool_manager.list_tools()]
-    # 12 read + 8 lifecycle + 7 provision = 27.
-    assert len(names) == 27
+    # 14 read + 8 lifecycle + 7 provision = 29.
+    assert len(names) == 29
 
 
 def test_registry_guard_flags_a_bad_delete_tool():

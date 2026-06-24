@@ -60,12 +60,13 @@ destructive API call even if one were added by mistake.
 
 ## Capabilities
 
-**~27 tools** across three always-on tiers, plus an optional fourth:
+**~29 tools** across three always-on tiers, plus an optional fourth:
 
-### Tier A — read / status *(12, strictly read-only)*
+### Tier A — read / status *(14, strictly read-only)*
 `list_nodes` · `node_status` · `cluster_resources` · `list_vms` ·
 `list_containers` · `vm_status` · `container_status` · `vm_config` ·
-`container_config` · `list_storage` · `list_templates` · `next_vmid`
+`container_config` · `list_storage` · `list_templates` · `next_vmid` ·
+`get_task_status` · `list_tasks`
 
 ### Tier B — lifecycle *(8, reversible power state)*
 `start_vm` · `stop_vm` · `shutdown_vm` · `reboot_vm` ·
@@ -239,7 +240,7 @@ Example `env` additions:
 "PROXMOX_SSH_KEY_FILE": "/home/you/.ssh/proxmox_agent"
 ```
 
-With exec enabled the server exposes **29 tools** (27 baseline + 2 exec).
+With exec enabled the server exposes **31 tools** (29 baseline + 2 exec).
 
 ---
 
@@ -253,7 +254,7 @@ Once registered, you talk to your agent in plain language; it picks the tools.
 | "How much RAM is free on node pve?" | `node_status` |
 | "Reboot the docker VM (id 102)." | `reboot_vm` |
 | "Create a Debian 12 container, 2 cores, 2 GB, on vmbr0." | `list_templates`, `allocate_vmid`, `create_container`, `start_container` |
-| "Clone template 9000 into a new VM and start it." | `clone_vm`, `start_vm` |
+| "Clone template 9000 into a new VM and start it." | `clone_vm`, `get_task_status`, `start_vm` |
 | "Install nginx in container 250." *(exec enabled)* | `exec_in_container` |
 | "Delete that test VM." | ❌ refused — deletion is human-only |
 
@@ -283,6 +284,7 @@ just needs the env vars set so the server can connect.
 ## Roadmap
 
 - ✅ Tier A/B/C (read, lifecycle, provision) — no-delete guaranteed
+- ✅ Task status visibility (`get_task_status`, `list_tasks`)
 - ✅ Tier D′ in-guest exec (opt-in)
 - ⏳ cloud-init provisioning helpers for VMs
 - ⏳ file push/pull into guests for app deployment
