@@ -80,7 +80,9 @@ def node_from_upid(upid: str) -> str:
         raise ValueError(f"UPID must be a string, got {type(upid).__name__}")
     parts = upid.split(":")
     # "UPID", node, pid, pstart, starttime, type, id, user, (trailing "")
-    if parts[0] != "UPID" or len(parts) < 3 or not parts[1]:
+    # Validate enough shape before tools contact Proxmox, so bad input fails
+    # locally instead of becoming a confusing API request.
+    if parts[0] != "UPID" or len(parts) < 8 or not parts[1]:
         raise ValueError(f"Not a valid UPID: {upid!r}")
     return parts[1]
 

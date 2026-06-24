@@ -55,11 +55,13 @@ def test_build_server_returns_fastmcp_with_full_tool_set():
     mcp = server.build_server(config=_dummy_config())
     assert isinstance(mcp, FastMCP)
     names = {t.name for t in mcp._tool_manager.list_tools()}
-    # 12 read + 8 lifecycle + 7 provision = 27.
-    assert len(names) == 27
+    # 14 read + 8 lifecycle + 7 provision = 29.
+    assert len(names) == 29
     for expected in (
         "list_vms",
         "node_status",
+        "get_task_status",
+        "list_tasks",
         "start_vm",
         "create_container",
         "clone_vm",
@@ -95,7 +97,7 @@ def test_build_server_does_not_require_env_or_network(monkeypatch):
 
     mcp = server.build_server()  # no config -> still must not read env
     assert isinstance(mcp, FastMCP)
-    assert len(list(mcp._tool_manager.list_tools())) == 27
+    assert len(list(mcp._tool_manager.list_tools())) == 29
 
 
 def test_build_server_passes_no_destructive_tools_assertion():

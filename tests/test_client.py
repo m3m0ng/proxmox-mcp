@@ -122,7 +122,10 @@ def test_node_from_upid_parses_node():
     assert node_from_upid(upid) == "pve1"
 
 
-@pytest.mark.parametrize("bad", ["", "not-a-upid", "UPID:", "FOO:pve1:x"])
+@pytest.mark.parametrize(
+    "bad",
+    ["", "not-a-upid", "UPID:", "FOO:pve1:x", "UPID:pve1:x"],
+)
 def test_node_from_upid_rejects_garbage(bad):
     with pytest.raises(ValueError):
         node_from_upid(bad)

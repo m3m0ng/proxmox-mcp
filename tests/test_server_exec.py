@@ -13,7 +13,7 @@ from proxmox_mcp.config import Config
 from proxmox_mcp.safety import assert_no_destructive_tools
 
 
-# The 27 baseline tools (12 read + 8 lifecycle + 7 provision).
+# The 29 baseline tools (14 read + 8 lifecycle + 7 provision).
 _EXEC_TOOLS = {"exec_in_container", "exec_in_vm"}
 
 
@@ -32,18 +32,18 @@ def _tool_names(mcp: FastMCP) -> set[str]:
     return {t.name for t in mcp._tool_manager.list_tools()}
 
 
-def test_exec_disabled_keeps_baseline_27_without_exec_tools():
+def test_exec_disabled_keeps_baseline_29_without_exec_tools():
     mcp = server.build_server(config=_config(enable_exec=False))
     names = _tool_names(mcp)
-    assert len(names) == 27
+    assert len(names) == 29
     assert "exec_in_container" not in names
     assert "exec_in_vm" not in names
 
 
-def test_exec_enabled_adds_two_exec_tools_for_29():
+def test_exec_enabled_adds_two_exec_tools_for_31():
     mcp = server.build_server(config=_config(enable_exec=True))
     names = _tool_names(mcp)
-    assert len(names) == 29
+    assert len(names) == 31
     assert "exec_in_container" in names
     assert "exec_in_vm" in names
 
@@ -82,7 +82,7 @@ def test_env_enable_exec_registers_exec_tools_without_explicit_config(monkeypatc
     names = _tool_names(mcp)
     assert "exec_in_container" in names
     assert "exec_in_vm" in names
-    assert len(names) == 29
+    assert len(names) == 31
 
 
 def test_env_without_enable_exec_stays_at_baseline(monkeypatch):
@@ -97,4 +97,4 @@ def test_env_without_enable_exec_stays_at_baseline(monkeypatch):
     mcp = server.build_server()
     names = _tool_names(mcp)
     assert "exec_in_container" not in names
-    assert len(names) == 27
+    assert len(names) == 29

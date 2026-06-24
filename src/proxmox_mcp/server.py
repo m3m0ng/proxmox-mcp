@@ -64,7 +64,7 @@ def build_server(config: Optional[Config] = None) -> FastMCP:
     # peek at the PROXMOX_ENABLE_EXEC env var directly. This keeps the build
     # network-free and avoids a full load_config() (the SSH params are resolved
     # lazily via get_config only when an exec tool actually runs). Disabled by
-    # default -> the server stays at its 27-tool surface.
+    # default -> the server stays at its 29-tool surface.
     if config is not None:
         exec_enabled = config.enable_exec
     else:
